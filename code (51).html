@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tanzania Malaria Burden Causal Map - Concentric</title>
+    <!-- Load Popper.js for tooltips -->
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <!-- Load Cytoscape.js -->
+    <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+    <!-- Load Cytoscape extension for Popper.js tooltips -->
+    <script src="https://unpkg.com/cytoscape-popper/cytoscape-popper.js"></script>
+
+    <style>
+        /* --- Dark Theme Palette & Layout --- */
+        :root {
+            --bg-dark-start: #1a202c;
+            --bg-dark-end: #2d3748;
+            --text-light: #e2e8f0;
+            --card-border: #4a5568;
+            --card-bg: rgba(45, 55, 72, 0.92);
+            --link-color: #90cdf4;
+            --heading-color: #fff;
+            --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+        }
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        body { background: radial-gradient(circle at top, var(--bg-dark-end) 0%, var(--bg-dark-start) 90%); background-attachment: fixed; color: var(--text-light); font-family: var(--font-family); display: flex; flex-direction: column; align-items: center; box-sizing: border-box; }
+        body.dragging-info-box { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
+        h1 { margin: 10px 0; color: var(--heading-color); text-shadow: 0 1px 3px rgba(0,0,0,0.5); font-size: 1.5em; font-weight: 500; text-align: center; padding: 0 15px; flex-shrink: 0; }
+
+        /* --- Cytoscape Container - Increased Height --- */
+        #cy {
+            width: 95%; max-width: 1400px;
+            height: 85vh; /* INCREASED HEIGHT */
+            min-height: 500px; /* Adjusted min-height */
+            border: 1px solid var(--card-border); background: rgba(26, 32, 44, 0.65);
+            border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+            margin-bottom: 10px; display: block; cursor: default;
+            position: relative; overflow: hidden;
+        }
+
+        /* --- Tooltip Styling --- */
+        .popper-tooltip { background: rgba(10, 20, 30, 0.92); color: var(--text-light); padding: 8px 12px; border-radius: 6px; font-size: 12.5px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 320px; text-align: left; z-index: 1000; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out; }
+        .popper-tooltip.visible { opacity: 1; visibility: visible; }
+        .popper-tooltip strong { display: block; font-weight: 500; font-size: 1.1em; margin-bottom: 4px; color: #ffffff; }
+        .popper-tooltip small { font-size: 0.9em; color: #c5d0e0; display: block; line-height: 1.4; }
+        .popper-arrow, .popper-arrow::before { position: absolute; width: 8px; height: 8px; background: inherit; visibility: hidden; }
+        .popper-arrow::before { content: ''; visibility: visible; transform: rotate(45deg); }
+
+        /* --- Legend Box Styles --- */
+        #legend { position: fixed; top: 70px; right: 15px; width: 220px; background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px; font-size: 10px; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3); z-index: 950; transition: all 0.3s ease-in-out; }
+        #legend h3 { margin: 0 0 10px 0; font-size: 13px; font-weight: 500; color: var(--text-light); border-bottom: 1px solid var(--card-border); padding-bottom: 5px; }
+        .legend-item { margin-bottom: 6px; display: flex; align-items: center; font-size: 10.5px; color: #cbd5e0; }
+        .legend-color-box { width: 12px; height: 12px; border: 1px solid rgba(255, 255, 255, 0.2); margin-right: 7px; flex-shrink: 0; border-radius: 3px; }
+        .color-direct { background-color: #FFB74D; } .color-health { background-color: #B3E5FC; } .color-socioeconomic { background-color: #C8E6C9; } .color-environmental { background-color: #FFE0B2; } .color-cultural { background-color: #D1C4E9; } .color-political { background-color: #FFCDD2; } .color-outcome { background-color: #FFAB91; } .color-default { background-color: #CFD8DC; }
+        #legend-toggle { display: none; position: fixed; top: 70px; right: 15px; z-index: 951; padding: 5px 10px; background-color: #81A1C1; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); transition: background-color 0.2s ease; }
+        #legend-toggle:hover { background-color: #5E81AC; }
+        @media (max-width: 768px) { #legend { height: 0; padding: 0; overflow: hidden; border: none; box-shadow: none; background-color: transparent; } #legend.expanded { height: auto; padding: 12px; border: 1px solid var(--card-border); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3); background-color: var(--card-bg); } #legend #legend-content { display: none; } #legend.expanded #legend-content { display: block; } #legend-toggle { display: block; } .info-box { max-width: 90vw; max-height: 60vh; } }
+
+        /* --- Bibliography Section Styles --- */
+        #bibliography { display: none; /* Hide bibliography for cleaner focus */ }
+
+        /* --- Draggable & Resizable Info Box Styles --- */
+        .info-box { position: fixed; bottom: 15px; right: 15px; width: 320px; height: 250px; min-width: 240px; min-height: 140px; max-width: 75vw; max-height: 70vh; background-color: var(--card-bg); color: var(--text-light); border-radius: 8px; border: 1px solid var(--card-border); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6); z-index: 990; opacity: 0; visibility: hidden; transform: translateY(15px) scale(0.98); transition: opacity 0.3s ease-out, visibility 0.3s ease-out, transform 0.3s ease-out; display: flex; flex-direction: column; resize: both; overflow: hidden; }
+        .info-box.visible { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+        .info-box-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px 6px 12px; border-bottom: 1px solid var(--card-border); flex-shrink: 0; cursor: move; }
+        #info-box-title { margin: 0; font-size: 1.1em; font-weight: 500; color: var(--heading-color); flex-grow: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-right: 8px; }
+        .info-box-close { background: none; border: none; font-size: 1.7rem; color: var(--text-light); cursor: pointer; line-height: 1; padding: 0 4px; opacity: 0.6; transition: opacity 0.2s ease; flex-shrink: 0; }
+        .info-box-close:hover { opacity: 1; }
+        .info-box-content { padding: 10px 12px; flex-grow: 1; overflow-y: auto; overflow-x: hidden; }
+        #info-box-description { font-size: 0.85em; line-height: 1.55; color: #cbd5e0; margin: 0; }
+
+        /* Credit Style */
+        .credit { text-align: center; font-size: 0.7em; color: var(--card-border); margin: 5px 0 8px 0; flex-shrink: 0; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Causal Map: Tanzania Malaria Burden Factors</h1>
+    <div id="cy"></div>
+    <div id="legend"> <div id="legend-content"> <h3>Legend</h3> <div class="legend-item"><span class="legend-color-box color-direct"></span> Direct Causes</div> <div class="legend-item"><span class="legend-color-box color-health"></span> Health System</div> <div class="legend-item"><span class="legend-color-box color-socioeconomic"></span> Socioeconomic</div> <div class="legend-item"><span class="legend-color-box color-environmental"></span> Environmental</div> <div class="legend-item"><span class="legend-color-box color-cultural"></span> Cultural/Behavioral</div> <div class="legend-item"><span class="legend-color-box color-political"></span> Political/Structural</div> <div class="legend-item"><span class="legend-color-box color-outcome"></span> Outcome</div> <div class="legend-item"><span class="legend-color-box color-default"></span> Other/Uncategorized</div> <hr style="border: none; border-top: 1px solid var(--card-border); margin: 10px 0;"> <p style="margin: 0 0 6px 0; font-size: 10.5px; color: #cbd5e0;"><strong>Node Size:</strong> Connections</p> <div class="legend-item"> <svg height="12" width="25" style="margin-right: 5px; flex-shrink: 0;"><line x1="0" y1="6" x2="15" y2="6" style="stroke:#B3E5FC; stroke-width:2; stroke-dasharray: 4, 2;"></line><polygon points="15,3 25,6 15,9" style="fill:#B3E5FC"></polygon></svg> <strong>Causes</strong> (←) </div> <div class="legend-item"> <svg height="12" width="25" style="margin-right: 5px; flex-shrink: 0;"><line x1="0" y1="6" x2="15" y2="6" style="stroke:#FFB74D; stroke-width:2;"></line><polygon points="13,2 25,6 13,10" style="fill:#FFB74D"></polygon></svg> <strong>Effects</strong> (→) </div> <p style="margin: 6px 0 0 0; font-size: 10.5px; color: #cbd5e0;"><strong>[#] in Nodes:</strong> Ref.</p> <p style="margin: 4px 0 0 0; font-size: 10.5px; color: #cbd5e0;"><strong>Click Node:</strong> Highlight Neighbors.</p> </div> </div>
+    <button id="legend-toggle">Legend</button>
+    <!-- Bibliography hidden by default via CSS -->
+    <div id="bibliography"> <h2>Bibliography</h2> <ol> <li>World Health Organization. <em>World Malaria Report 2023</em>. WHO, 2023.</li> <li>Tanzania Ministry of Health. <em>Tanzania Malaria Indicator Survey 2022</em>. Ministry of Health Tanzania, 2023.</li> <li>The Global Fund. <em>Audit Report: Global Fund Grants to the United Republic of Tanzania</em>. Global Fund Office of the Inspector General, 2023.</li> <li>The Lancet Infectious Diseases. "Emergence of Artemisinin Resistance in Africa." <em>The Lancet Infectious Diseases</em>, 2023.</li> <li>Malaria Journal. "Asymptomatic Malaria Infections in Tanzania." <em>Malaria Journal</em>, 2025. [Placeholder]</li> <li>The Lancet Global Health. "Patterns of Bed Net Usage in Urban Tanzania." <em>The Lancet Global Health</em>, 2017.</li> <li>African Leaders Malaria Alliance (ALMA). <em>Africa Malaria Progress Report 2023</em>. ALMA, 2023.</li> <li>KFF/Ministry of Health Tanzania. <em>The Economic Burden of Malaria in Tanzania</em>. KFF Report, 2009.</li> </ol> </div>
+    <p class="credit">Created by Timon Leske</p>
+    <div id="node-info-box" class="info-box"> <div class="info-box-header"> <h4 id="info-box-title">Node Title</h4> <button class="info-box-close" aria-label="Close details">&times;</button> </div> <div class="info-box-content"> <p id="info-box-description">Detailed description will appear here...</p> </div> </div>
+
+
+    <script>
+        try {
+            console.log("Script execution started.");
+
+            // --- START: Configuration & Data ---
+            const pastelCategoryHex = { DIRECT: '#FFB74D', HEALTH: '#B3E5FC', SOCIOECONOMIC: '#C8E6C9', ENVIRONMENTAL: '#FFE0B2', CULTURAL: '#D1C4E9', POLITICAL: '#FFCDD2', OUTCOME: '#FFAB91', DEFAULT: '#CFD8DC' };
+            const categoryLevels = { OUTCOME: 1, DIRECT: 2, HEALTH: 3, SOCIOECONOMIC: 4, ENVIRONMENTAL: 4, CULTURAL: 5, POLITICAL: 5, DEFAULT: 6 };
+            const minPadding = 10; const maxPadding = 30; const baseFontSize = 10;
+            // *** RESTORED FULL DESCRIPTIONS ***
+            const nodeDescriptions = {
+                'Efficient Mosquito Vectors': "Malaria transmission in Tanzania is driven by highly efficient Anopheles mosquitoes, especially An. funestus, which are anthropophilic and increasingly insecticide-resistant.",
+                'High Parasite Prevalence': "High asymptomatic parasite prevalence sustains malaria transmission even when clinical cases drop; especially in regions like Geita and Kigoma.",
+                'Asymptomatic Carriers': "Asymptomatic individuals maintain the infectious reservoir, challenging surveillance and elimination efforts.",
+                'Insecticide Resistance': "Widespread mosquito resistance to pyrethroids undermines the effectiveness of ITNs and IRS; newer nets with synergists show better results.",
+                'Drug Resistance Emerging': "Artemisinin resistance (PfKelch13 mutations) detected in Tanzania's northwest, posing risk for future treatment failures if not managed.",
+                'Intense Transmission Regions': "Lake zone and southern regions like Geita, Kigoma, Mtwara have intense, persistent malaria transmission fueled by ecological and mobility factors.",
+                'Gaps in Preventive Coverage (ITNs/IRS)': "Only 41% of households have enough ITNs; IRS is implemented selectively and often irregularly; resulting in vulnerable unprotected communities.",
+                'Diagnosis and Treatment Challenges': "Health worker shortages (~50% of needed HRH), access barriers, and gaps in community case management delay proper diagnosis and treatment.",
+                'Commodity Supply & Health Infrastructure': "Stockouts and supply chain issues (e.g., 6.7 million excess ACT doses) reduce health system efficiency and responsiveness to malaria outbreaks.",
+                'Gaps in Malaria in Pregnancy Programs': "Inadequate coverage of IPTp for pregnant women contributes to continued malaria burden among high-risk populations.",
+                'Suboptimal Case Management': "Weaknesses in treatment adherence and case handling allow ongoing transmission and promote drug resistance.",
+                'Weak Surveillance System': "Historical gaps in malaria data capture delayed outbreak detection and adaptive responses, though improvements are underway.",
+                'Health Worker Shortage': "Persistent understaffing at health facilities worsens malaria case management, especially during peak seasons.",
+                'Poverty': "Poverty limits prevention and treatment access, while malaria illness causes lost income and higher poverty, reinforcing a vicious cycle.",
+                'Poor Rural Housing': "Rural housing (open eaves, thatch roofs) increases mosquito exposure; richer urban homes offer much more protection.",
+                'Low Education/Awareness': "Lower education correlates with poor net use, delayed treatment seeking, and vulnerability to malaria misconceptions.",
+                'High-Risk Occupations/Lifestyles': "Farming, fishing, and outdoor occupations at peak mosquito biting times increase malaria exposure risk.",
+                'Limited Access to Care (Rural)': "Long distances, poor roads, and sparse health facilities delay or prevent access to effective malaria care in rural communities.",
+                'Conducive Climate & Seasonality': "Tanzania's warm, rainy climate allows nearly year-round mosquito breeding and malaria transmission.",
+                'Favorable Geography (Wetlands, Lakes)': "Ecologies like the Lake Victoria basin create ideal habitats for Anopheles mosquitoes.",
+                'Climate Change & Extreme Events': "Warming and increased rainfall variability risk expanding malaria transmission zones and increasing outbreaks.",
+                'Invasive/Evolving Vectors': "Anopheles stephensi’s possible spread into Tanzania threatens urban malaria transmission; native vectors adapt behavior to avoid control measures.",
+                'Environmental Modification (e.g., Irrigation)': "Irrigation and water management projects can unintentionally create mosquito breeding sites unless properly managed.",
+                'Inconsistent/Improper Net Use': "Improper net usage (\"ulalavi\") and discomfort reduce net effectiveness even where ownership is high.",
+                'Net Misuse (e.g., Fishing)': "In some fishing communities, free nets are repurposed for fishing, reducing malaria protection.",
+                'Delayed Health-Seeking (Traditional Beliefs)': "Reliance on traditional healers and delayed biomedical treatment increases severity and infectiousness of malaria cases.",
+                'Poor Treatment Compliance': "Non-adherence to ACT regimens can promote resistance and leave infections partially untreated.",
+                'Low Community Acceptance (e.g., IRS)': "Community distrust of IRS (due to chemical fears or myths) limits its coverage and effectiveness.",
+                'Mobility & Travel Patterns': "Migration, urban-rural travel, and occupational mobility spread malaria across regions and complicate control.",
+                'Funding Gaps & Donor Dependency': "Heavy reliance on external funding leaves Tanzania’s malaria program vulnerable to financial shocks.",
+                'Governance & Program Management Issues': "Program execution suffers from logistical, management, and financial traceability gaps, weakening intervention impact.",
+                'Weak Health System Structure': "Systemic issues like facility shortages and decentralized management impede malaria control service delivery.",
+                'Lack of Multisectoral Action': "Malaria control requires coordination across health, agriculture, environment, and education sectors, which is often insufficient.",
+                'Political Complacency Risk': "Successes in reducing malaria can breed political complacency, risking resurgence if interventions stall.",
+                'High Malaria Burden (Cases & Deaths)': "Despite progress, Tanzania remains one of the highest burden countries globally, accounting for ~3–4% of global cases and deaths."
+            };
+            const graphData = { nodes: [ { id: 'Efficient Mosquito Vectors', category: 'DIRECT', ref: 1 }, { id: 'High Parasite Prevalence', category: 'DIRECT', ref: 1 }, { id: 'Asymptomatic Carriers', category: 'DIRECT', ref: 5 }, { id: 'Insecticide Resistance', category: 'DIRECT', ref: 1 }, { id: 'Drug Resistance Emerging', category: 'DIRECT', ref: 4 }, { id: 'Intense Transmission Regions', category: 'DIRECT', ref: 1 }, { id: 'Gaps in Preventive Coverage (ITNs/IRS)', category: 'HEALTH', ref: 2 }, { id: 'Diagnosis and Treatment Challenges', category: 'HEALTH', ref: 3 }, { id: 'Commodity Supply & Health Infrastructure', category: 'HEALTH', ref: 3 }, { id: 'Gaps in Malaria in Pregnancy Programs', category: 'HEALTH', ref: 2 }, { id: 'Suboptimal Case Management', category: 'HEALTH', ref: 3 }, { id: 'Weak Surveillance System', category: 'HEALTH', ref: 3 }, { id: 'Health Worker Shortage', category: 'HEALTH', ref: 3 }, { id: 'Poverty', category: 'SOCIOECONOMIC', ref: 8 }, { id: 'Poor Rural Housing', category: 'SOCIOECONOMIC', ref: 2 }, { id: 'Low Education/Awareness', category: 'SOCIOECONOMIC', ref: 6 }, { id: 'High-Risk Occupations/Lifestyles', category: 'SOCIOECONOMIC', ref: 1 }, { id: 'Limited Access to Care (Rural)', category: 'SOCIOECONOMIC', ref: 2 }, { id: 'Conducive Climate & Seasonality', category: 'ENVIRONMENTAL', ref: 1 }, { id: 'Favorable Geography (Wetlands, Lakes)', category: 'ENVIRONMENTAL', ref: 1 }, { id: 'Climate Change & Extreme Events', category: 'ENVIRONMENTAL', ref: 7 }, { id: 'Invasive/Evolving Vectors', category: 'ENVIRONMENTAL', ref: 1 }, { id: 'Environmental Modification (e.g., Irrigation)', category: 'ENVIRONMENTAL', ref: 1 }, { id: 'Inconsistent/Improper Net Use', category: 'CULTURAL', ref: 6 }, { id: 'Net Misuse (e.g., Fishing)', category: 'CULTURAL', ref: 6 }, { id: 'Delayed Health-Seeking (Traditional Beliefs)', category: 'CULTURAL', ref: 2 }, { id: 'Poor Treatment Compliance', category: 'CULTURAL', ref: 4 }, { id: 'Low Community Acceptance (e.g., IRS)', category: 'CULTURAL', ref: 1 }, { id: 'Mobility & Travel Patterns', category: 'CULTURAL', ref: 1 }, { id: 'Funding Gaps & Donor Dependency', category: 'POLITICAL', ref: 3 }, { id: 'Governance & Program Management Issues', category: 'POLITICAL', ref: 3 }, { id: 'Weak Health System Structure', category: 'POLITICAL', ref: 7 }, { id: 'Lack of Multisectoral Action', category: 'POLITICAL', ref: 7 }, { id: 'Political Complacency Risk', category: 'POLITICAL', ref: 7 }, { id: 'High Malaria Burden (Cases & Deaths)', category: 'OUTCOME', ref: 1 } ], links: [ { source: 'Efficient Mosquito Vectors', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'High Parasite Prevalence', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Insecticide Resistance', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Drug Resistance Emerging', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Intense Transmission Regions', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Asymptomatic Carriers', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Efficient Mosquito Vectors', target: 'Intense Transmission Regions' }, { source: 'High Parasite Prevalence', target: 'Asymptomatic Carriers' }, { source: 'Asymptomatic Carriers', target: 'High Parasite Prevalence' }, { source: 'Insecticide Resistance', target: 'Efficient Mosquito Vectors' }, { source: 'Gaps in Preventive Coverage (ITNs/IRS)', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Gaps in Preventive Coverage (ITNs/IRS)', target: 'Efficient Mosquito Vectors' }, { source: 'Diagnosis and Treatment Challenges', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Commodity Supply & Health Infrastructure', target: 'Diagnosis and Treatment Challenges' }, { source: 'Gaps in Malaria in Pregnancy Programs', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Health Worker Shortage', target: 'Diagnosis and Treatment Challenges' }, { source: 'Weak Surveillance System', target: 'Diagnosis and Treatment Challenges' }, { source: 'Suboptimal Case Management', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Suboptimal Case Management', target: 'Drug Resistance Emerging' }, { source: 'Poverty', target: 'Poor Rural Housing' }, { source: 'Poverty', target: 'Low Education/Awareness' }, { source: 'Poverty', target: 'Limited Access to Care (Rural)' }, { source: 'Poverty', target: 'Net Misuse (e.g., Fishing)' }, { source: 'Poverty', target: 'Delayed Health-Seeking (Traditional Beliefs)' }, { source: 'Poverty', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Poor Rural Housing', target: 'Efficient Mosquito Vectors' }, { source: 'Low Education/Awareness', target: 'Inconsistent/Improper Net Use' }, { source: 'Low Education/Awareness', target: 'Delayed Health-Seeking (Traditional Beliefs)' }, { source: 'High-Risk Occupations/Lifestyles', target: 'Efficient Mosquito Vectors' }, { source: 'Conducive Climate & Seasonality', target: 'Efficient Mosquito Vectors' }, { source: 'Favorable Geography (Wetlands, Lakes)', target: 'Efficient Mosquito Vectors' }, { source: 'Favorable Geography (Wetlands, Lakes)', target: 'Intense Transmission Regions' }, { source: 'Climate Change & Extreme Events', target: 'Efficient Mosquito Vectors' }, { source: 'Climate Change & Extreme Events', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Invasive/Evolving Vectors', target: 'Efficient Mosquito Vectors' }, { source: 'Environmental Modification (e.g., Irrigation)', target: 'Efficient Mosquito Vectors' }, { source: 'Inconsistent/Improper Net Use', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Net Misuse (e.g., Fishing)', target: 'Gaps in Preventive Coverage (ITNs/IRS)' }, { source: 'Delayed Health-Seeking (Traditional Beliefs)', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Poor Treatment Compliance', target: 'Drug Resistance Emerging' }, { source: 'Poor Treatment Compliance', target: 'High Malaria Burden (Cases & Deaths)' }, { source: 'Low Community Acceptance (e.g., IRS)', target: 'Gaps in Preventive Coverage (ITNs/IRS)' }, { source: 'Mobility & Travel Patterns', target: 'Intense Transmission Regions' }, { source: 'Funding Gaps & Donor Dependency', target: 'Gaps in Preventive Coverage (ITNs/IRS)' }, { source: 'Funding Gaps & Donor Dependency', target: 'Commodity Supply & Health Infrastructure' }, { source: 'Funding Gaps & Donor Dependency', target: 'Health Worker Shortage' }, { source: 'Governance & Program Management Issues', target: 'Suboptimal Case Management' }, { source: 'Governance & Program Management Issues', target: 'Commodity Supply & Health Infrastructure' }, { source: 'Weak Health System Structure', target: 'Diagnosis and Treatment Challenges' }, { source: 'Weak Health System Structure', target: 'Health Worker Shortage' }, { source: 'Lack of Multisectoral Action', target: 'Poor Rural Housing' }, { source: 'Lack of Multisectoral Action', target: 'Environmental Modification (e.g., Irrigation)' }, { source: 'Political Complacency Risk', target: 'Funding Gaps & Donor Dependency' }, { source: 'High Malaria Burden (Cases & Deaths)', target: 'Poverty' }, { source: 'High Malaria Burden (Cases & Deaths)', target: 'Weak Health System Structure' }, { source: 'High Malaria Burden (Cases & Deaths)', target: 'Political Complacency Risk' } ] };
+            const centralNodeId = 'High Malaria Burden (Cases & Deaths)';
+            console.log("Data configuration loaded.");
+            // --- END: Configuration & Data ---
+
+            // --- Function to Calculate Concentric Preset Layout ---
+            function calculateConcentricPresetLayout(nodes, links, centralNodeId) {
+                 console.log("Calculating CONCENTRIC preset layout...");
+                 const nodeMap = new Map(nodes.map(node => [node.id, { ...node } ]));
+                 const nodeDegrees = {}; nodes.forEach(node => { nodeDegrees[node.id] = 0; });
+                 links.forEach(link => { if (nodeDegrees.hasOwnProperty(link.source) && nodeDegrees.hasOwnProperty(link.target)) { nodeDegrees[link.source]++; nodeDegrees[link.target]++; } });
+                 nodes.forEach(node => { const nodeData = nodeMap.get(node.id); if (nodeData) nodeData.degree = nodeDegrees[node.id] || 0; });
+                 const centralNode = nodeMap.get(centralNodeId);
+                 if (centralNode) centralNode.position = { x: 0, y: 0 }; else console.error("Central node not found:", centralNodeId);
+                 const maxRadius = 1100; const minRadius = 220; const categoryAnglePadding = Math.PI / 10;
+                 const nonCentralNodes = Array.from(nodeMap.values()).filter(node => node.id !== centralNodeId);
+                 if (nonCentralNodes.length === 0) return nodeMap;
+                 const degrees = nonCentralNodes.map(n => n.degree).filter(d => d >= 0); const minDegree = Math.min(...degrees); const maxDegree = Math.max(...degrees); const degreeRange = (maxDegree - minDegree > 0) ? maxDegree - minDegree : 1;
+                 const nodesByCategory = {}; nonCentralNodes.forEach(node => { const category = node.category || 'DEFAULT'; if (!nodesByCategory[category]) nodesByCategory[category] = []; nodesByCategory[category].push(node); });
+                 const categories = Object.keys(nodesByCategory).sort(); const totalCategoryPadding = categories.length * categoryAnglePadding; const totalAngleAvailable = 2 * Math.PI - totalCategoryPadding;
+                 let weightSum = 0; categories.forEach(cat => { weightSum += Math.sqrt(nodesByCategory[cat].length); }); let currentAngle = -Math.PI / 2;
+                 categories.forEach(category => {
+                     const categoryNodes = nodesByCategory[category]; if (categoryNodes.length === 0) return;
+                     const categoryWeight = Math.sqrt(categoryNodes.length); const categoryAngleSpan = weightSum > 0 ? (categoryWeight / weightSum) * totalAngleAvailable : totalAngleAvailable / categories.length; const categoryStartAngle = currentAngle;
+                     categoryNodes.sort((a, b) => a.id.localeCompare(b.id)); const angleStep = categoryNodes.length > 1 ? categoryAngleSpan / categoryNodes.length : 0;
+                     categoryNodes.forEach((node, index) => {
+                         let radius; if (node.degree <= minDegree) { radius = maxRadius; } else if (node.degree >= maxDegree) { radius = minRadius; } else { const degreeRatio = (node.degree - minDegree) / degreeRange; radius = maxRadius - degreeRatio * (maxRadius - minRadius); }
+                         radius *= (1 + (Math.random() - 0.5) * 0.05); // Jitter
+                         const nodeAngle = categoryStartAngle + (index * angleStep) + (angleStep / 2);
+                         node.position = { x: radius * Math.cos(nodeAngle), y: radius * Math.sin(nodeAngle) };
+                     });
+                     currentAngle += categoryAngleSpan + categoryAnglePadding;
+                 });
+                 console.log("Concentric preset layout calculated successfully.");
+                 return nodeMap;
+             }
+            // --- END: Preset Layout Function ---
+
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log("DOM Content Loaded.");
+                try {
+                    const infoBox = document.getElementById('node-info-box'); const infoBoxHeader = infoBox.querySelector('.info-box-header'); const infoBoxTitle = document.getElementById('info-box-title'); const infoBoxDescription = document.getElementById('info-box-description'); const infoBoxCloseButton = infoBox.querySelector('.info-box-close');
+                    if (!infoBox || !infoBoxHeader || !infoBoxTitle || !infoBoxDescription || !infoBoxCloseButton) throw new Error("Info box elements missing.");
+
+                    const nodesWithPosition = calculateConcentricPresetLayout(graphData.nodes, graphData.links, centralNodeId);
+
+                     console.log("Processing graph data for Cytoscape...");
+                     const elements = [];
+                     graphData.nodes.forEach(originalNode => { const nodeDataWithPos = nodesWithPosition.get(originalNode.id); if (!nodeDataWithPos) return; const degree = nodeDataWithPos.degree; const degreeValues = Array.from(nodesWithPosition.values()).map(n => n.degree); const minDegreeAll = Math.min(...degreeValues); const maxDegreeAll = Math.max(...degreeValues); const degreeRangeAll = maxDegreeAll - minDegreeAll || 1; const degreeRatio = degreeRangeAll === 0 ? 0.5 : (degree - minDegreeAll) / degreeRangeAll; const paddingSize = minPadding + degreeRatio * (maxPadding - minPadding); const currentFontSize = baseFontSize + degreeRatio * 4; const category = nodeDataWithPos.category || 'DEFAULT'; elements.push({ group: 'nodes', data: { id: nodeDataWithPos.id, label: `${nodeDataWithPos.id} [#${nodeDataWithPos.ref}]`, name: nodeDataWithPos.id, category: category, color: pastelCategoryHex[category] || pastelCategoryHex.DEFAULT, ref: nodeDataWithPos.ref, degree: degree, padding: Math.round(paddingSize), fontSize: Math.round(currentFontSize), level: categoryLevels[category] || categoryLevels.DEFAULT }, position: nodeDataWithPos.position }); });
+                     graphData.links.forEach((link, index) => { if (nodesWithPosition.has(link.source) && nodesWithPosition.has(link.target)) { elements.push({ group: 'edges', data: { id: `e${index}`, source: link.source, target: link.target } }); } else { console.warn(`Skipping edge ${index} due to missing node: ${link.source} -> ${link.target}`); } });
+                     console.log(`Processed ${elements.length} elements for Cytoscape.`);
+
+                    // --- Define Cytoscape Style ---
+                    const cyStyle = [
+                        { selector: 'node', style: { 'background-color': 'data(color)', 'label': 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 150, 'text-valign': 'center', 'text-halign': 'center', 'color': '#1a202c', 'text-outline-color': 'rgba(255,255,255,0.6)', 'text-outline-width': 1.5, 'shape': 'round-rectangle', 'padding': 'data(padding)', 'font-size': 'data(fontSize)', 'border-width': 1.5, 'border-color': 'rgba(255,255,255,0.25)', 'box-shadow': '0 3px 8px rgba(0,0,0,0.4)', 'opacity': 1, 'transition-property': 'background-color, box-shadow, transform, border-color, border-width, position, opacity', 'transition-duration': '0.3s', 'transition-timing-function': 'ease-out' } },
+                        { selector: 'node:hover', style: { 'transform': 'scale(1.05)', 'box-shadow': ele => `0 6px 18px rgba(0,0,0,0.5), 0 0 10px ${ele.data('color')}aa`, 'border-color': 'rgba(255,255,255,0.5)', 'z-index': 99, 'cursor': 'pointer' } },
+                        { selector: 'node.active-node', style: { 'opacity': 1, 'transform': 'scale(1.2)', 'border-width': 3, 'border-color': '#ffffff', 'box-shadow': ele => `0 10px 25px rgba(0,0,0,0.7), 0 0 20px ${ele.data('color')}`, 'z-index': 100 } },
+                        { selector: 'edge', style: { 'width': 1.5, 'line-color': '#718096', 'target-arrow-color': '#718096', 'target-arrow-shape': 'triangle-tee', 'arrow-scale': 1, 'curve-style': 'bezier', 'opacity': 0.45, 'transition-property': 'line-color, target-arrow-color, opacity, width, line-style', 'transition-duration': '0.3s', 'transition-timing-function': 'ease-out' } },
+                        { selector: 'node.highlighted', style: { 'opacity': 1, 'box-shadow': ele => `0 5px 15px rgba(0,0,0,0.6), 0 0 8px ${ele.data('color')}cc`, 'border-color': 'rgba(255,255,255,0.7)', 'border-width': 2, 'z-index': 20 } },
+                        { selector: 'edge.highlighted-cause', style: { 'line-color': pastelCategoryHex.HEALTH, 'target-arrow-color': pastelCategoryHex.HEALTH, 'width': 3, 'opacity': 1, 'z-index': 10, 'line-style': 'dashed', 'line-dash-pattern': [8, 4] } },
+                        { selector: 'edge.highlighted-effect', style: { 'line-color': pastelCategoryHex.DIRECT, 'target-arrow-color': pastelCategoryHex.DIRECT, 'width': 3, 'opacity': 1, 'z-index': 10, 'line-style': 'solid', 'target-arrow-shape': 'vee', 'arrow-scale': 1.3 } },
+                        { selector: '.dimmed', style: { 'opacity': 0.1 } } // Adjusted dimming opacity
+                    ];
+                    console.log("Cytoscape style defined.");
+
+                    // --- Initialize Cytoscape with Animated Preset Layout ---
+                    console.log("Initializing Cytoscape...");
+                    const cy = cytoscape({
+                        container: document.getElementById('cy'),
+                        elements: elements,
+                        style: cyStyle,
+                        layout: {
+                            name: 'preset',
+                            positions: node => nodesWithPosition.get(node.id())?.position, // Use calculated positions
+                            padding: 70,
+                            fit: true,
+                            animate: true, // <<< ENABLE ANIMATION
+                            animationDuration: 1200,
+                            animationEasing: 'ease-out-expo' // Nice fly-in effect
+                        },
+                        zoomingEnabled: true, userZoomingEnabled: true,
+                        panningEnabled: true, userPanningEnabled: true,
+                        boxSelectionEnabled: false,
+                        ready: function() {
+                             console.log("Cytoscape ready and initial layout complete/started.");
+                        }
+                    });
+                    console.log("Cytoscape initialization requested.");
+
+                    // --- Tooltip Handling ---
+                    let popperRef = null; let tooltipElement = null; let hideTooltipTimeout = null;
+                    function showTooltip(node) { if (hideTooltipTimeout) clearTimeout(hideTooltipTimeout); if (popperRef) destroyTooltip(true); const ref = node.popperRef(); if (!ref) return; tooltipElement = makeTooltipElement(node); document.body.appendChild(tooltipElement); try { popperRef = Popper.createPopper(ref, tooltipElement, { placement: 'top', strategy: 'fixed', modifiers: [{ name: 'offset', options: { offset: [0, 10] } }, { name: 'preventOverflow', options: { padding: 10 } }] }); } catch (e) { console.error("Popper error:", e); destroyTooltip(true); return; } requestAnimationFrame(() => { if(tooltipElement) tooltipElement.classList.add('visible'); }); }
+                    function hideTooltip() { if (tooltipElement) { tooltipElement.classList.remove('visible'); hideTooltipTimeout = setTimeout(() => destroyTooltip(false), 250); } }
+                    function destroyTooltip(forceImmediate = false) { if (hideTooltipTimeout) { clearTimeout(hideTooltipTimeout); hideTooltipTimeout = null; } if (popperRef) { try { popperRef.destroy(); } catch(e) { console.error("Error destroying popper:", e); } popperRef = null; } if (tooltipElement && tooltipElement.parentNode) { if (forceImmediate || !tooltipElement.classList.contains('visible')) { try { tooltipElement.parentNode.removeChild(tooltipElement); } catch(e){ console.error("Error removing tooltip element:", e);} tooltipElement = null; } } }
+                    function makeTooltipElement(node) { const div = document.createElement('div'); const data = node.data(); const title = data.name || data.id; div.innerHTML = `<strong>${title}</strong><small>Connections: ${data.degree || 'N/A'} [#${data.ref}]</small><div class="popper-arrow"></div>`; div.classList.add('popper-tooltip'); return div; }
+                    cy.on('mouseover', 'node', (event) => { if (!infoBox.classList.contains('visible') && !event.target.hasClass('active-node') && !event.target.hasClass('dimmed')) { showTooltip(event.target); } });
+                    cy.on('mouseout', 'node', hideTooltip); cy.on('drag', 'node', () => destroyTooltip(true)); cy.on('pan zoom', () => destroyTooltip(true));
+
+
+                    // --- Interaction Logic (Simplified Highlighting) ---
+                    const interactionClasses = ['dimmed', 'highlighted', 'highlighted-cause', 'highlighted-effect', 'active-node'];
+
+                    function resetGraphAppearance() {
+                        try { cy.elements().removeClass(interactionClasses); }
+                        catch (e) { console.error("Error resetting classes:", e); }
+                    }
+
+                    // --- Node Click -> Highlight Immediate Neighbors ---
+                    cy.on('tap', 'node', function(event) {
+                        const clickedNode = event.target;
+                        console.log("Node tapped:", clickedNode.id());
+                        try {
+                            destroyTooltip(true);
+                            resetGraphAppearance();
+
+                            // 1. Dim ALL elements
+                            cy.elements().addClass('dimmed');
+
+                            // 2. Identify neighborhood (clicked node + 1-hop neighbors + connecting edges)
+                            const neighborhood = clickedNode.neighborhood();
+
+                            // 3. Undim the neighborhood
+                            neighborhood.removeClass('dimmed');
+                            clickedNode.removeClass('dimmed'); // Crucial: ensure clicked node itself is undimmed
+
+                            // 4. Apply specific styles
+                            clickedNode.addClass('active-node');
+
+                            // Highlight immediate neighbors
+                            neighborhood.nodes().addClass('highlighted');
+
+                            // Style connecting edges based on direction relative to clicked node
+                            neighborhood.edges().forEach(edge => {
+                                if (edge.source().id() === clickedNode.id()) {
+                                    edge.addClass('highlighted-effect');
+                                } else if (edge.target().id() === clickedNode.id()) {
+                                    edge.addClass('highlighted-cause');
+                                }
+                            });
+
+                            // 5. Show info box
+                            showInfoBox(clickedNode);
+
+                        } catch (e) { console.error("Error in node tap handler:", e); resetGraphAppearance(); }
+                    });
+
+                    // --- Background Click -> Reset ---
+                    cy.on('tap', function(event) { if (event.target === cy) { console.log("Background tapped."); try { hideInfoBox(); resetGraphAppearance(); } catch(e){ console.error("Error in background tap handler:", e); } } });
+                    // --- END Interaction Logic ---
+
+
+                    // --- Draggable Info Box Logic ---
+                    let isDragging = false; let dragStartX, dragStartY, initialBoxX, initialBoxY;
+                    infoBoxHeader.addEventListener('mousedown', (e) => { if (e.target === infoBoxCloseButton) return; const rect = infoBox.getBoundingClientRect(); if (e.clientX > rect.right - 20 && e.clientY > rect.bottom - 20) return; isDragging = true; dragStartX = e.clientX; dragStartY = e.clientY; initialBoxX = infoBox.offsetLeft; initialBoxY = infoBox.offsetTop; infoBox.style.bottom = ''; infoBox.style.right = ''; infoBox.style.cursor = 'grabbing'; document.body.classList.add('dragging-info-box'); });
+                    document.addEventListener('mousemove', (e) => { if (!isDragging) return; e.preventDefault(); const dx = e.clientX - dragStartX; const dy = e.clientY - dragStartY; let newX = initialBoxX + dx; let newY = initialBoxY + dy; const maxX = window.innerWidth - infoBox.offsetWidth; const maxY = window.innerHeight - infoBox.offsetHeight; newX = Math.max(0, Math.min(newX, maxX)); newY = Math.max(0, Math.min(newY, maxY)); infoBox.style.left = `${newX}px`; infoBox.style.top = `${newY}px`; });
+                    document.addEventListener('mouseup', (e) => { if (isDragging) { isDragging = false; infoBox.style.cursor = 'move'; document.body.classList.remove('dragging-info-box'); } });
+
+                    // --- Info Box Show/Hide Logic ---
+                    function showInfoBox(node) { try { const nodeId = node.id(); const nodeName = node.data('name') || nodeId; const description = nodeDescriptions[nodeId] || "No detailed description available."; infoBoxTitle.textContent = nodeName; infoBoxDescription.textContent = description; const contentArea = infoBox.querySelector('.info-box-content'); if(contentArea) contentArea.scrollTop = 0; infoBox.classList.add('visible'); } catch(e){ console.error("Error showing info box:", e); } }
+                    function hideInfoBox() { infoBox.classList.remove('visible'); }
+                    infoBoxCloseButton.addEventListener('click', (e) => { e.stopPropagation(); hideInfoBox(); resetGraphAppearance(); });
+                    document.addEventListener('keydown', function(event) { if (event.key === "Escape" && infoBox.classList.contains('visible')) { hideInfoBox(); resetGraphAppearance(); } });
+
+                    // --- Legend Toggle Functionality ---
+                    const legend = document.getElementById('legend'); const legendToggle = document.getElementById('legend-toggle');
+                    if (legendToggle && legend) { function checkLegend() { const isMobile = window.innerWidth <= 768; legendToggle.style.display = isMobile ? 'block' : 'none'; if (isMobile) { legendToggle.textContent = legend.classList.contains('expanded') ? 'Hide Legend' : 'Show Legend'; } else { legend.classList.add('expanded'); legend.style.height = ''; legend.style.padding = ''; legend.style.border = ''; legend.style.backgroundColor = ''; } } legendToggle.addEventListener('click', function() { legend.classList.toggle('expanded'); checkLegend(); }); checkLegend(); window.addEventListener('resize', checkLegend); console.log("Legend setup complete.");} else { console.warn("Legend or toggle button not found."); }
+
+                    // --- Window Resize Handling ---
+                    let resizeTimer; window.addEventListener('resize', function() { clearTimeout(resizeTimer); resizeTimer = setTimeout(function() { console.log("Window resize detected, refitting preset layout..."); try { cy.resize(); cy.layout({ name:'preset', // Re-run preset to fit
+                           positions: node => nodesWithPosition.get(node.id())?.position, // Important: Use original calculated positions
+                           fit: true, padding: 70, animate: false // No animation on resize
+                       }).run(); } catch(e){ console.error("Error on resize/fit:", e); } }, 250); });
+
+                    console.log("DOM Content Loaded and script setup finished.");
+
+                } catch (domError) {
+                    console.error("Error during DOMContentLoaded execution:", domError);
+                    alert("An error occurred setting up the map. Please check the console.");
+                }
+            }); // End DOMContentLoaded
+
+        } catch (scriptError) {
+            console.error("Critical error in script execution:", scriptError);
+            alert("A critical JavaScript error occurred. The map may not function correctly. Please check the console.");
+        }
+    </script>
+
+</body>
+</html>
