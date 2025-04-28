@@ -57,8 +57,27 @@
         #legend-toggle:hover { background-color: #5E81AC; }
         @media (max-width: 768px) { #legend { height: 0; padding: 0; overflow: hidden; border: none; box-shadow: none; background-color: transparent; } #legend.expanded { height: auto; padding: 12px; border: 1px solid var(--card-border); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3); background-color: var(--card-bg); } #legend #legend-content { display: none; } #legend.expanded #legend-content { display: block; } #legend-toggle { display: block; } .info-box { max-width: 90vw; max-height: 60vh; } }
 
-        /* --- Bibliography Section Styles --- */
-        #bibliography { display: none; /* Hide bibliography for cleaner focus */ }
+        /* --- Bibliography Section Styles (Restored) --- */
+        #bibliography {
+             width: 95%; max-width: 1400px;
+             margin: 5px auto; /* Reduced margin top/bottom */
+             padding: 10px 15px; /* Reduced padding */
+             background-color: var(--card-bg);
+             border: 1px solid var(--card-border);
+             border-radius: 8px;
+             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+             flex-shrink: 0; /* Prevent shrinking if body height issues */
+             max-height: 10vh; /* Limit initial height */
+             overflow-y: auto;
+             display: block; /* Ensure it's visible */
+        }
+        #bibliography h2 { margin: 0 0 8px 0; font-size: 1.1em; font-weight: 500; color: var(--text-light); border-bottom: 1px solid var(--card-border); padding-bottom: 5px; }
+        #bibliography ol { padding-left: 18px; margin: 0; font-size: 0.75em; line-height: 1.4; color: #cbd5e0; }
+        #bibliography li { margin-bottom: 6px; } #bibliography li::marker { font-weight: 500; color: var(--link-color); }
+        #bibliography::-webkit-scrollbar, .info-box-content::-webkit-scrollbar { width: 7px; }
+        #bibliography::-webkit-scrollbar-track, .info-box-content::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 3px;}
+        #bibliography::-webkit-scrollbar-thumb, .info-box-content::-webkit-scrollbar-thumb { background-color: var(--card-border); border-radius: 3px; border: 2px solid transparent; background-clip: content-box;}
+        #bibliography::-webkit-scrollbar-thumb:hover, .info-box-content::-webkit-scrollbar-thumb:hover { background-color: #718096; }
 
         /* --- Draggable & Resizable Info Box Styles --- */
         .info-box { position: fixed; bottom: 15px; right: 15px; width: 320px; height: 250px; min-width: 240px; min-height: 140px; max-width: 75vw; max-height: 70vh; background-color: var(--card-bg); color: var(--text-light); border-radius: 8px; border: 1px solid var(--card-border); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6); z-index: 990; opacity: 0; visibility: hidden; transform: translateY(15px) scale(0.98); transition: opacity 0.3s ease-out, visibility 0.3s ease-out, transform 0.3s ease-out; display: flex; flex-direction: column; resize: both; overflow: hidden; }
@@ -81,10 +100,22 @@
     <div id="cy"></div>
     <div id="legend"> <div id="legend-content"> <h3>Legend</h3> <div class="legend-item"><span class="legend-color-box color-direct"></span> Direct Causes</div> <div class="legend-item"><span class="legend-color-box color-health"></span> Health System</div> <div class="legend-item"><span class="legend-color-box color-socioeconomic"></span> Socioeconomic</div> <div class="legend-item"><span class="legend-color-box color-environmental"></span> Environmental</div> <div class="legend-item"><span class="legend-color-box color-cultural"></span> Cultural/Behavioral</div> <div class="legend-item"><span class="legend-color-box color-political"></span> Political/Structural</div> <div class="legend-item"><span class="legend-color-box color-outcome"></span> Outcome</div> <div class="legend-item"><span class="legend-color-box color-default"></span> Other/Uncategorized</div> <hr style="border: none; border-top: 1px solid var(--card-border); margin: 10px 0;"> <p style="margin: 0 0 6px 0; font-size: 10.5px; color: #cbd5e0;"><strong>Node Size:</strong> Connections</p> <div class="legend-item"> <svg height="12" width="25" style="margin-right: 5px; flex-shrink: 0;"><line x1="0" y1="6" x2="15" y2="6" style="stroke:#B3E5FC; stroke-width:2; stroke-dasharray: 4, 2;"></line><polygon points="15,3 25,6 15,9" style="fill:#B3E5FC"></polygon></svg> <strong>Causes</strong> (←) </div> <div class="legend-item"> <svg height="12" width="25" style="margin-right: 5px; flex-shrink: 0;"><line x1="0" y1="6" x2="15" y2="6" style="stroke:#FFB74D; stroke-width:2;"></line><polygon points="13,2 25,6 13,10" style="fill:#FFB74D"></polygon></svg> <strong>Effects</strong> (→) </div> <p style="margin: 6px 0 0 0; font-size: 10.5px; color: #cbd5e0;"><strong>[#] in Nodes:</strong> Ref.</p> <p style="margin: 4px 0 0 0; font-size: 10.5px; color: #cbd5e0;"><strong>Click Node:</strong> Highlight Neighbors.</p> </div> </div>
     <button id="legend-toggle">Legend</button>
-    <!-- Bibliography hidden by default via CSS -->
-    <div id="bibliography"> <h2>Bibliography</h2> <ol> <li>World Health Organization. <em>World Malaria Report 2023</em>. WHO, 2023.</li> <li>Tanzania Ministry of Health. <em>Tanzania Malaria Indicator Survey 2022</em>. Ministry of Health Tanzania, 2023.</li> <li>The Global Fund. <em>Audit Report: Global Fund Grants to the United Republic of Tanzania</em>. Global Fund Office of the Inspector General, 2023.</li> <li>The Lancet Infectious Diseases. "Emergence of Artemisinin Resistance in Africa." <em>The Lancet Infectious Diseases</em>, 2023.</li> <li>Malaria Journal. "Asymptomatic Malaria Infections in Tanzania." <em>Malaria Journal</em>, 2025. [Placeholder]</li> <li>The Lancet Global Health. "Patterns of Bed Net Usage in Urban Tanzania." <em>The Lancet Global Health</em>, 2017.</li> <li>African Leaders Malaria Alliance (ALMA). <em>Africa Malaria Progress Report 2023</em>. ALMA, 2023.</li> <li>KFF/Ministry of Health Tanzania. <em>The Economic Burden of Malaria in Tanzania</em>. KFF Report, 2009.</li> </ol> </div>
+    <!-- Bibliography section - now visible -->
+    <div id="bibliography">
+        <h2>Bibliography</h2>
+        <ol>
+            <li>World Health Organization. <em>World Malaria Report 2023</em>. WHO, 2023.</li>
+            <li>Tanzania Ministry of Health. <em>Tanzania Malaria Indicator Survey 2022</em>. Ministry of Health Tanzania, 2023.</li>
+            <li>The Global Fund. <em>Audit Report: Global Fund Grants to the United Republic of Tanzania</em>. Global Fund Office of the Inspector General, 2023.</li>
+            <li>The Lancet Infectious Diseases. "Emergence of Artemisinin Resistance in Africa." <em>The Lancet Infectious Diseases</em>, 2023.</li>
+            <li>Malaria Journal. "Asymptomatic Malaria Infections in Tanzania." <em>Malaria Journal</em>, 2025. [Placeholder]</li>
+            <li>The Lancet Global Health. "Patterns of Bed Net Usage in Urban Tanzania." <em>The Lancet Global Health</em>, 2017.</li>
+            <li>African Leaders Malaria Alliance (ALMA). <em>Africa Malaria Progress Report 2023</em>. ALMA, 2023.</li>
+            <li>KFF/Ministry of Health Tanzania. <em>The Economic Burden of Malaria in Tanzania</em>. KFF Report, 2009.</li>
+        </ol>
+    </div>
     <p class="credit">Created by Timon Leske</p>
-    <div id="node-info-box" class="info-box"> <div class="info-box-header"> <h4 id="info-box-title">Node Title</h4> <button class="info-box-close" aria-label="Close details">&times;</button> </div> <div class="info-box-content"> <p id="info-box-description">Detailed description will appear here...</p> </div> </div>
+    <div id="node-info-box" class="info-box"> <div class="info-box-header"> <h4 id="info-box-title">Node Title</h4> <button class="info-box-close" aria-label="Close details">×</button> </div> <div class="info-box-content"> <p id="info-box-description">Detailed description will appear here...</p> </div> </div>
 
 
     <script>
@@ -95,7 +126,6 @@
             const pastelCategoryHex = { DIRECT: '#FFB74D', HEALTH: '#B3E5FC', SOCIOECONOMIC: '#C8E6C9', ENVIRONMENTAL: '#FFE0B2', CULTURAL: '#D1C4E9', POLITICAL: '#FFCDD2', OUTCOME: '#FFAB91', DEFAULT: '#CFD8DC' };
             const categoryLevels = { OUTCOME: 1, DIRECT: 2, HEALTH: 3, SOCIOECONOMIC: 4, ENVIRONMENTAL: 4, CULTURAL: 5, POLITICAL: 5, DEFAULT: 6 };
             const minPadding = 10; const maxPadding = 30; const baseFontSize = 10;
-            // *** RESTORED FULL DESCRIPTIONS ***
             const nodeDescriptions = {
                 'Efficient Mosquito Vectors': "Malaria transmission in Tanzania is driven by highly efficient Anopheles mosquitoes, especially An. funestus, which are anthropophilic and increasingly insecticide-resistant.",
                 'High Parasite Prevalence': "High asymptomatic parasite prevalence sustains malaria transmission even when clinical cases drop; especially in regions like Geita and Kigoma.",
